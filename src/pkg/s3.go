@@ -62,7 +62,7 @@ func (manager *S3Manager) HandleFiles(bucketName string, prefix string, handler 
 				}
 				e := handler(s3file)
 				if e != nil {
-					GLogger.Warning("Exception in handling file %v of bucket %v", s3file.Name, bucketName)
+					GLogger.Warning("Exception in handling file %v of bucket %v, reason: %v", s3file.Name, bucketName, e)
 				}
 			}
 			return !lastPage

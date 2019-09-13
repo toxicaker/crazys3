@@ -1,8 +1,9 @@
 package pkg
 
 type MigrationRequest struct {
-	Files        *S3File
+	File         *S3File
 	SourceBucket string
 	DestBucket   string
 	DestFileName string
+	Finished     bool
 }
