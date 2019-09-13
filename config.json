@@ -2,5 +2,7 @@
   "master": "localhost",
   "workers": [
     "localhost"
-  ]
+  ],
+  "master_port": 12580,
+  "worker_port": 10086
 }

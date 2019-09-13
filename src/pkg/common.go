@@ -2,17 +2,33 @@ package pkg
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/mgutz/ansi"
 	"log"
 	"os"
 	"time"
 )
 
+func BootStrap() {
+	err := InitLogger(true, "./crazys3.log")
+	if err != nil {
+		fmt.Printf("Exception in creating logger, reason:%v", err)
+		return
+	}
+	err = InitConfig("./config.json")
+	if err != nil {
+		GLogger.Error("Exception in initiating configuration files, reason: %v", err)
+		return
+	}
+}
+
 /* configuration setting */
 
 type Config struct {
-	Master  string   `json:"master"`
-	Workers []string `json:"workers"`
+	Master     string   `json:"master"`
+	Workers    []string `json:"workers"`
+	MasterPort int      `json:"master_port"`
+	WorkerPort int      `json:"worker_port"`
 }
 
 var GConfig *Config
@@ -45,16 +61,13 @@ type Logger struct {
 func (logger *Logger) Debug(format string, v ...interface{}) {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	format = "[Debug] " + currentTime + " " + format
-	logger.consoleLogger.Printf(logger.green(format), v...)
-	if !logger.debugMode {
-		logger.fileLogger.Printf(format, v...)
-	}
+	logger.consoleLogger.Printf(format, v...)
 }
 
 func (logger *Logger) Info(format string, v ...interface{}) {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
 	format = "[Info] " + currentTime + " " + format
-	logger.consoleLogger.Printf(format, v...)
+	logger.consoleLogger.Printf(logger.green(format), v...)
 	if !logger.debugMode {
 		logger.fileLogger.Printf(format, v...)
 	}
