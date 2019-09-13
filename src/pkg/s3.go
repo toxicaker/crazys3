@@ -69,3 +69,20 @@ func (manager *S3Manager) HandleFiles(bucketName string, prefix string, handler 
 		})
 	return err
 }
+
+// Copy a file object from source bucket to destination
+// It CAN preserve ACLS
+// wiki: https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html
+func (manager *S3Manager) CopyFile(sourceBucket string, sourceFileName string, destBucket string, destFileName string) error {
+	input := &s3.CopyObjectInput{
+		Bucket:     aws.String(destBucket),
+		CopySource: aws.String("/" + sourceBucket + "/" + sourceFileName),
+		Key:        aws.String(destFileName),
+	}
+	res, err := manager.s3cli.CopyObject(input)
+	if err != nil {
+		return err
+	}
+	GLogger.Debug("copied file %v to %v, res=%v", sourceBucket+"/"+sourceFileName, destBucket+"/"+destFileName, res)
+	return nil
+}

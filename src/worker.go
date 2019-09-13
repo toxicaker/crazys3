@@ -20,8 +20,9 @@ func main() {
 
 type Listener int
 
-func (l *Listener) ReceiveData(files []*pkg.S3File, ack *bool) error {
-	pkg.GLogger.Debug("received %v s3 files", len(files))
+func (l *Listener) HandleMigration(reqs []*pkg.MigrationRequest, ack *bool) error {
+	pkg.GLogger.Debug("[HandleMigration] received %v migration requests", len(reqs))
+
 	return nil
 }
 
