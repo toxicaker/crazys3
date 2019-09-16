@@ -69,7 +69,7 @@ func startMigrateJobThreads(dataChan chan *pkg.MigrationRequest, manager *pkg.S3
 			return
 		}(i)
 	}
-	pkg.GLogger.Info(">>>>>>>>>>>>>>>>>>>>>>>>> all data migration threads are closed <<<<<<<<<<<<<<<<<<<<<<<<<<", i)
+	pkg.GLogger.Info(">>>>>>>>>>>>>>>>>>>>>>>>> all data migration threads are closed <<<<<<<<<<<<<<<<<<<<<<<<<<")
 }
 
 // blocking function

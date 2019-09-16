@@ -22,11 +22,10 @@ func main() {
 		return
 	}
 	// Todo: change name here
-	err = runMigrationJob("houzz-test", "jiateng-test", "", manager, clients)
+	err = runMigrationJob("k8s-test-stghouzz-state-store", "jiateng-test", "", manager, clients)
 	if err != nil {
-		pkg.GLogger.Error("Exception in migrating bucket %v, reason: %v", "jiateng-test", err)
+		pkg.GLogger.Error("Exception in migrating bucket %v, reason: %v", "k8s-test-stghouzz-state-store", err)
 	}
-
 	rpcClose(clients)
 }
 

@@ -1,10 +1,12 @@
 package pkg
 
 import (
+	"context"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"sync/atomic"
 )
 
@@ -37,6 +39,35 @@ func NewS3Manager(region, profile string) (*S3Manager, error) {
 		region:  region,
 	}
 	return manager, nil
+}
+
+// list all buckets in the account. region doesn't impact the result
+func (manager *S3Manager) ListBuckets() ([]*s3.Bucket, error) {
+	res, err := manager.s3cli.ListBuckets(&s3.ListBucketsInput{})
+	return res.Buckets, err
+}
+
+// get bucket's region
+func (manager *S3Manager) GetBucketRegion(bucket string) (string, error) {
+	return s3manager.GetBucketRegionWithClient(context.Background(), manager.s3cli, bucket)
+}
+
+func (manager *S3Manager) GetFileAcls(bucket string, fileName string) ([]*s3.Grant, error) {
+	input := &s3.GetObjectAclInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(fileName),
+	}
+	res, err := manager.s3cli.GetObjectAcl(input)
+	return res.Grants, err
+}
+
+func (manager *S3Manager) PutFileAcls(bucket string, fileName string, grants []*s3.Grant) ([]*s3.Grant, error) {
+	input := &s3.PutObjectAclInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(fileName),
+	}
+	res, err := manager.s3cli.GetObjectAcl(input)
+	return res.Grants, err
 }
 
 func (manager *S3Manager) HandleFiles(bucketName string, prefix string, handler func(file *S3File) error) error {
