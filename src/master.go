@@ -2,29 +2,37 @@ package main
 
 import (
 	"crazys3/src/pkg"
+	"errors"
+	"github.com/AlecAivazis/survey/v2"
 	"net/rpc"
 	"strconv"
 )
 
 // master is responsible for data collecting and distributing
+// author: jiateng.liang@nyu.edu
+
 func main() {
 	pkg.BootStrap()
-	// Todo: solve region issue
-	manager, err := pkg.NewS3Manager("us-west-2", "staging")
-	if err != nil {
-		pkg.GLogger.Error("Exception in creating S3Manager, reason: %v", err)
-		return
-	}
 	clients := make([]*rpc.Client, len(pkg.GConfig.Workers))
-	err = rpcConnect(clients)
+	err := rpcConnect(clients)
 	if err != nil {
 		pkg.GLogger.Error("Exception in establishing rpc connection, reason: %v", err)
 		return
 	}
-	// Todo: change name here
-	err = runMigrationJob("k8s-test-stghouzz-state-store", "jiateng-test", "", manager, clients)
+	task := ""
+	err = survey.AskOne(&survey.Select{
+		Message: "Select a task to execute:",
+		Options: []string{"S3 Bucket Migration", "blue", "green"},
+	}, &task)
 	if err != nil {
-		pkg.GLogger.Error("Exception in migrating bucket %v, reason: %v", "k8s-test-stghouzz-state-store", err)
+		pkg.GLogger.Error("Exception in selecting tasks, reason: %v", err)
+		return
+	}
+	if task == "S3 Bucket Migration" {
+		err = RunMigrationJob("k8s-test-stghouzz-state-store", "jiateng-test", "", clients, "staging")
+		if err != nil {
+			pkg.GLogger.Error("Exception in migrating bucket %v, reason: %v", "k8s-test-stghouzz-state-store", err)
+		}
 	}
 	rpcClose(clients)
 }
@@ -50,10 +58,43 @@ func rpcClose(clients []*rpc.Client) {
 }
 
 // Data migration job. Copy the whole bucket to the destination with acls preserved
-func runMigrationJob(from string, to string, prefix string, manager *pkg.S3Manager, clients []*rpc.Client) error {
+func RunMigrationJob(from string, to string, prefix string, clients []*rpc.Client, profile string) error {
+	// create s3 manager
+	manager, err := pkg.NewS3Manager("us-west-2", profile)
+	if err != nil {
+		return err
+	}
+	region1, err := manager.GetBucketRegion(from)
+	region2, err := manager.GetBucketRegion(to)
+	if err != nil {
+		return err
+	}
+	if region1 != region2 {
+		return errors.New("bucket1's region " + region1 + " != bucket2's region " + region2)
+	}
+	if region1 != "us-west-2" {
+		manager, err = pkg.NewS3Manager(region1, profile)
+		if err != nil {
+			return err
+		}
+	}
+	key, pwd := manager.GetCredential()
+	s3InfoReq := &pkg.S3InfoRequest{
+		Profile:   profile,
+		Region:    region1,
+		AwsKey:    key,
+		AwsSecret: pwd,
+	}
+	for _, cli := range clients {
+		err := cli.Call("RpcHandler.HandleS3Info", s3InfoReq, nil)
+		if err != nil {
+			return err
+		}
+		cli.Call("RpcHandler.StartMigraJob", "", nil)
+	}
 	pkg.GLogger.Info(">>>>>>>>>>>>>>>>>>>>>>>>> data migration job started <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 	buffers := make([][]*pkg.MigrationRequest, len(pkg.GConfig.Workers))
-	err := manager.HandleFiles(from, prefix, func(file *pkg.S3File) error {
+	err = manager.HandleFiles(from, prefix, func(file *pkg.S3File) error {
 		idx := file.Id % int64(len(pkg.GConfig.Workers))
 		req := &pkg.MigrationRequest{
 			File:         file,

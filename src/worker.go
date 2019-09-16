@@ -10,17 +10,10 @@ import (
 
 func main() {
 	pkg.BootStrap()
-	manager, err := pkg.NewS3Manager("us-west-2", "staging")
-	if err != nil {
-		pkg.GLogger.Error("Exception in creating S3Manager, reason: %v", err)
-		return
-	}
 	handler := &RpcHandler{
-		manager:   manager,
 		migraChan: make(chan *pkg.MigrationRequest, 10000),
 	}
-	startMigrateJobThreads(handler.migraChan, manager)
-	err = rpcServe(handler)
+	err := rpcServe(handler)
 	if err != nil {
 		pkg.GLogger.Error("Exception in starting rpc server, reason: %v", err)
 		return
@@ -30,11 +23,23 @@ func main() {
 /******* rpc functions ********/
 
 type RpcHandler struct {
-	manager   *pkg.S3Manager
 	migraChan chan *pkg.MigrationRequest
+	manager   *pkg.S3Manager
+}
+
+func (handler *RpcHandler) HandleS3Info(req *pkg.S3InfoRequest, ack *bool) error {
+	pkg.GLogger.Debug("RPC CMD [HandleS3Info] received")
+	manager, err := pkg.NewS3ManagerWithKey(req.Region, req.AwsKey, req.AwsSecret)
+	if err != nil {
+		return err
+	}
+	handler.manager = manager
+	*ack = true
+	return nil
 }
 
 func (handler *RpcHandler) HandleMigration(reqs []*pkg.MigrationRequest, ack *bool) error {
+	pkg.GLogger.Debug("RPC CMD [HandleMigration] received")
 	for _, req := range reqs {
 		if req.Finished {
 			for i := 0; i < runtime.NumCPU(); i++ {
@@ -47,18 +52,21 @@ func (handler *RpcHandler) HandleMigration(reqs []*pkg.MigrationRequest, ack *bo
 	return nil
 }
 
-func startMigrateJobThreads(dataChan chan *pkg.MigrationRequest, manager *pkg.S3Manager) {
+/******* jobs ********/
+
+func (handler *RpcHandler) StartMigraJob(cmd string, acl *bool) error {
+	pkg.GLogger.Debug("RPC CMD [StartMigraJob] received")
 	pkg.GLogger.Info(">>>>>>>>>>>>>>>>>>>>>>>>> data migration job %v threads are ready <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<", runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func(i int) {
 			for {
 				select {
-				case req := <-dataChan:
+				case req := <-handler.migraChan:
 					if req.Finished {
 						goto EXIT
 					}
 					pkg.GLogger.Info("[Migration Job] thread %v is processing %v, id=%v", i, req.DestBucket+"/"+req.DestFileName, req.File.Id)
-					err := manager.CopyFile(req.SourceBucket, req.File.Name, req.DestBucket, req.DestFileName)
+					err := handler.manager.CopyFile(req.SourceBucket, req.File.Name, req.DestBucket, req.DestFileName)
 					if err != nil {
 						pkg.GLogger.Warning("[Migration Job] Exception in copying %v/%v to %v/%v, reason: %v", req.SourceBucket, req.File.Name, req.DestBucket, req.DestFileName, err)
 					}
@@ -69,7 +77,7 @@ func startMigrateJobThreads(dataChan chan *pkg.MigrationRequest, manager *pkg.S3
 			return
 		}(i)
 	}
-	pkg.GLogger.Info(">>>>>>>>>>>>>>>>>>>>>>>>> all data migration threads are closed <<<<<<<<<<<<<<<<<<<<<<<<<<")
+	return nil
 }
 
 // blocking function

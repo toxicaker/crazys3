@@ -14,6 +14,7 @@ type S3Manager struct {
 	s3cli   *s3.S3
 	profile string
 	region  string
+	cred    *credentials.Credentials
 }
 
 type S3File struct {
@@ -26,9 +27,10 @@ type S3File struct {
 
 // make sure you have ~/.aws/credentials
 func NewS3Manager(region, profile string) (*S3Manager, error) {
+	cred := credentials.NewSharedCredentials("", profile)
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
-		Credentials: credentials.NewSharedCredentials("", profile),
+		Credentials: cred,
 	})
 	if err != nil {
 		return nil, err
@@ -37,8 +39,34 @@ func NewS3Manager(region, profile string) (*S3Manager, error) {
 		s3cli:   s3.New(sess),
 		profile: profile,
 		region:  region,
+		cred:    cred,
 	}
 	return manager, nil
+}
+
+func NewS3ManagerWithKey(region, key, secret string) (*S3Manager, error) {
+	cred := credentials.NewStaticCredentials(key, secret, "")
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String(region),
+		Credentials: cred,
+	})
+	if err != nil {
+		return nil, err
+	}
+	manager := &S3Manager{
+		s3cli:  s3.New(sess),
+		region: region,
+		cred:   cred,
+	}
+	return manager, nil
+}
+
+func (manager *S3Manager) GetCredential() (key, secret string) {
+	val, err := manager.cred.Get()
+	if err != nil {
+		return "", ""
+	}
+	return val.AccessKeyID, val.SecretAccessKey
 }
 
 // list all buckets in the account. region doesn't impact the result
@@ -52,22 +80,28 @@ func (manager *S3Manager) GetBucketRegion(bucket string) (string, error) {
 	return s3manager.GetBucketRegionWithClient(context.Background(), manager.s3cli, bucket)
 }
 
-func (manager *S3Manager) GetFileAcls(bucket string, fileName string) ([]*s3.Grant, error) {
+// bucket should grant permission for the account to GET acl
+func (manager *S3Manager) GetFileAcls(bucket string, fileName string) (*s3.GetObjectAclOutput, error) {
 	input := &s3.GetObjectAclInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(fileName),
 	}
 	res, err := manager.s3cli.GetObjectAcl(input)
-	return res.Grants, err
+	return res, err
 }
 
-func (manager *S3Manager) PutFileAcls(bucket string, fileName string, grants []*s3.Grant) ([]*s3.Grant, error) {
+// bucket should grant permission for the account to PUT acl
+func (manager *S3Manager) PutFileAcls(bucket string, fileName string, acl *s3.GetObjectAclOutput) error {
 	input := &s3.PutObjectAclInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(fileName),
+		AccessControlPolicy: &s3.AccessControlPolicy{
+			Grants: acl.Grants,
+			Owner:  acl.Owner,
+		},
 	}
-	res, err := manager.s3cli.GetObjectAcl(input)
-	return res.Grants, err
+	_, err := manager.s3cli.PutObjectAcl(input)
+	return err
 }
 
 func (manager *S3Manager) HandleFiles(bucketName string, prefix string, handler func(file *S3File) error) error {
@@ -104,16 +138,23 @@ func (manager *S3Manager) HandleFiles(bucketName string, prefix string, handler 
 // Copy a file object from source bucket to destination
 // It CAN preserve ACLS
 // wiki: https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html
+// Source bucket region should be the primitive region
+// cannot migrate two buckets that their regions are different
 func (manager *S3Manager) CopyFile(sourceBucket string, sourceFileName string, destBucket string, destFileName string) error {
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(destBucket),
 		CopySource: aws.String("/" + sourceBucket + "/" + sourceFileName),
 		Key:        aws.String(destFileName),
 	}
+	acl, err := manager.GetFileAcls(sourceBucket, sourceFileName)
+	if err != nil {
+		return err
+	}
 	res, err := manager.s3cli.CopyObject(input)
 	if err != nil {
 		return err
 	}
 	GLogger.Debug("copied file %v to %v, res=%v", sourceBucket+"/"+sourceFileName, destBucket+"/"+destFileName, res)
-	return nil
+	err = manager.PutFileAcls(destBucket, destFileName, acl)
+	return err
 }
