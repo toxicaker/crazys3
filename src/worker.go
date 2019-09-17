@@ -212,7 +212,7 @@ func (handler *RpcHandler) StartRecoveryJob(cmd string, acl *bool) error {
 
 // blocking function
 func rpcServe(handler *RpcHandler) error {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:"+strconv.Itoa(pkg.GConfig.WorkerPort))
+	addr, err := net.ResolveTCPAddr("tcp", pkg.GConfig.Worker+":"+strconv.Itoa(pkg.GConfig.WorkerPort))
 	if err != nil {
 		return err
 	}

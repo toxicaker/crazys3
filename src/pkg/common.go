@@ -29,6 +29,7 @@ type Config struct {
 	Workers    []string `json:"workers"`
 	MasterPort int      `json:"master_port"`
 	WorkerPort int      `json:"worker_port"`
+	Worker     string   `json:"worker"`
 }
 
 var GConfig *Config
