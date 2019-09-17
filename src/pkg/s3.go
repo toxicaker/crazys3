@@ -142,9 +142,10 @@ func (manager *S3Manager) HandleFiles(bucketName string, prefix string, handler 
 // cannot migrate two buckets that their regions are different
 func (manager *S3Manager) CopyFile(sourceBucket string, sourceFileName string, destBucket string, destFileName string) error {
 	input := &s3.CopyObjectInput{
-		Bucket:     aws.String(destBucket),
-		CopySource: aws.String("/" + sourceBucket + "/" + sourceFileName),
-		Key:        aws.String(destFileName),
+		Bucket:       aws.String(destBucket),
+		CopySource:   aws.String("/" + sourceBucket + "/" + sourceFileName),
+		Key:          aws.String(destFileName),
+		StorageClass: aws.String("STANDARD"),
 	}
 	acl, err := manager.GetFileAcls(sourceBucket, sourceFileName)
 	if err != nil {
@@ -156,5 +157,45 @@ func (manager *S3Manager) CopyFile(sourceBucket string, sourceFileName string, d
 	}
 	GLogger.Debug("copied file %v to %v, res=%v", sourceBucket+"/"+sourceFileName, destBucket+"/"+destFileName, res)
 	err = manager.PutFileAcls(destBucket, destFileName, acl)
+	return err
+}
+
+func (manager *S3Manager) RestoreFile(bucket string, fileName string, days int64, speed string) error {
+	input := &s3.RestoreObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(fileName),
+		RestoreRequest: &s3.RestoreRequest{
+			Days: aws.Int64(days),
+			GlacierJobParameters: &s3.GlacierJobParameters{
+				Tier: aws.String(speed),
+			},
+		},
+	}
+	result, err := manager.s3cli.RestoreObject(input)
+	if err != nil {
+		return err
+	}
+	GLogger.Debug("restored %v/%v for %v days, speed=%v, res=%v", bucket, fileName, days, speed, result)
+	return nil
+}
+
+// the prerequisite of recovery is that the file is restored.
+func (manager *S3Manager) RecoverFile(bucket string, fileName string) error {
+	input := &s3.CopyObjectInput{
+		Bucket:       aws.String(bucket),
+		CopySource:   aws.String("/" + bucket + "/" + fileName),
+		Key:          aws.String(fileName),
+		StorageClass: aws.String("STANDARD"),
+	}
+	acl, err := manager.GetFileAcls(bucket, fileName)
+	if err != nil {
+		return err
+	}
+	res, err := manager.s3cli.CopyObject(input)
+	if err != nil {
+		return err
+	}
+	GLogger.Debug("copied file %v to %v, res=%v", bucket+"/"+fileName, bucket+"/"+fileName, res)
+	err = manager.PutFileAcls(bucket, fileName, acl)
 	return err
 }

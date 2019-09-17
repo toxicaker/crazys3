@@ -10,7 +10,7 @@ import (
 )
 
 func BootStrap() {
-	err := InitLogger(true, "../crazys3.log")
+	err := InitLogger(false, "../crazys3.log")
 	if err != nil {
 		fmt.Printf("Exception in creating logger, reason:%v", err)
 		return

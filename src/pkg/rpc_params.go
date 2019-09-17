@@ -8,6 +8,20 @@ type MigrationRequest struct {
 	Finished     bool
 }
 
+type RestorationRequest struct {
+	File     *S3File
+	Finished bool
+	Bucket   string
+	Days     int64
+	Speed    string
+}
+
+type RecoveryRequest struct {
+	File     *S3File
+	Finished bool
+	Bucket   string
+}
+
 type S3InfoRequest struct {
 	Profile   string
 	Region    string
