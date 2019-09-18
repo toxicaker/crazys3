@@ -224,7 +224,7 @@ func rpcServe(handler *RpcHandler) error {
 	if err != nil {
 		return err
 	}
-	pkg.GLogger.Info("rpc server is started at port %v", pkg.GConfig.WorkerPort)
+	pkg.GLogger.Info("rpc server is started at %v:%v", pkg.GConfig.Worker, pkg.GConfig.WorkerPort)
 	rpc.Accept(inbound)
 	return nil
 }
