@@ -160,6 +160,7 @@ func main() {
 			for _, cli := range clients {
 				res := false
 				cli.Call("RpcHandler.HandleTaskStatus", "", &res)
+				pkg.GLogger.Debug("res = %v", res)
 				if res {
 					num++
 				}
@@ -168,6 +169,7 @@ func main() {
 				pkg.GLogger.Info("Task finished. Time spent: %v hours", time.Since(startTime).Hours())
 				goto EXIT
 			}
+			timer.Reset(30 * time.Second)
 		}
 	}
 EXIT:
