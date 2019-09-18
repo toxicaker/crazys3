@@ -24,7 +24,8 @@ type RecoveryRequest struct {
 
 type S3InfoRequest struct {
 	Profile   string
-	Region    string
+	Region1   string
+	Region2   string
 	AwsKey    string
 	AwsSecret string
 }

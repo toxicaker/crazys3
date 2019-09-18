@@ -140,22 +140,23 @@ func (manager *S3Manager) HandleFiles(bucketName string, prefix string, handler 
 // wiki: https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html
 // Source bucket region should be the primitive region
 // cannot migrate two buckets that their regions are different
-func (manager *S3Manager) CopyFile(sourceBucket string, sourceFileName string, destBucket string, destFileName string) error {
+// sourceManager's region should be same with source bucket
+func (manager *S3Manager) CopyFile(sourceBucket string, sourceFileName string, destBucket string, destFileName string, sourceManager *S3Manager) error {
 	input := &s3.CopyObjectInput{
 		Bucket:       aws.String(destBucket),
 		CopySource:   aws.String("/" + sourceBucket + "/" + sourceFileName),
 		Key:          aws.String(destFileName),
 		StorageClass: aws.String("STANDARD"),
 	}
-	acl, err := manager.GetFileAcls(sourceBucket, sourceFileName)
+	acl, err := sourceManager.GetFileAcls(sourceBucket, sourceFileName)
 	if err != nil {
 		return err
 	}
-	res, err := manager.s3cli.CopyObject(input)
+	_, err = manager.s3cli.CopyObject(input)
 	if err != nil {
 		return err
 	}
-	GLogger.Debug("copied file %v to %v, res=%v", sourceBucket+"/"+sourceFileName, destBucket+"/"+destFileName, res)
+	//GLogger.Debug("copied file %v to %v, res=%v", sourceBucket+"/"+sourceFileName, destBucket+"/"+destFileName, res)
 	err = manager.PutFileAcls(destBucket, destFileName, acl)
 	return err
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"crazys3/src/pkg"
-	"errors"
 	"github.com/AlecAivazis/survey/v2"
 	"net/rpc"
 	"strconv"
@@ -152,7 +151,7 @@ func main() {
 		}
 		break
 	}
-	timer := time.NewTimer(30 * time.Second)
+	timer := time.NewTimer(10 * time.Second)
 	for {
 		select {
 		case <-timer.C:
@@ -160,7 +159,6 @@ func main() {
 			for _, cli := range clients {
 				res := false
 				cli.Call("RpcHandler.HandleTaskStatus", "", &res)
-				pkg.GLogger.Debug("res = %v", res)
 				if res {
 					num++
 				}
@@ -169,7 +167,7 @@ func main() {
 				pkg.GLogger.Info("Task finished. Time spent: %v hours", time.Since(startTime).Hours())
 				goto EXIT
 			}
-			timer.Reset(30 * time.Second)
+			timer.Reset(10 * time.Second)
 		}
 	}
 EXIT:
@@ -208,19 +206,11 @@ func RunMigrationJob(from string, to string, prefix string, clients []*rpc.Clien
 	if err != nil {
 		return err
 	}
-	if region1 != region2 {
-		return errors.New("bucket1's region " + region1 + " != bucket2's region " + region2)
-	}
-	if region1 != "us-west-2" {
-		manager, err = pkg.NewS3Manager(region1, profile)
-		if err != nil {
-			return err
-		}
-	}
 	key, pwd := manager.GetCredential()
 	s3InfoReq := &pkg.S3InfoRequest{
 		Profile:   profile,
-		Region:    region1,
+		Region1:   region1,
+		Region2:   region2,
 		AwsKey:    key,
 		AwsSecret: pwd,
 	}
@@ -280,7 +270,7 @@ func RunRestorationJob(bucket string, prefix string, clients []*rpc.Client, prof
 	key, pwd := manager.GetCredential()
 	s3InfoReq := &pkg.S3InfoRequest{
 		Profile:   profile,
-		Region:    region,
+		Region1:    region,
 		AwsKey:    key,
 		AwsSecret: pwd,
 	}
@@ -340,7 +330,7 @@ func RunRecoveryJob(bucket string, prefix string, clients []*rpc.Client, profile
 	key, pwd := manager.GetCredential()
 	s3InfoReq := &pkg.S3InfoRequest{
 		Profile:   profile,
-		Region:    region,
+		Region1:    region,
 		AwsKey:    key,
 		AwsSecret: pwd,
 	}

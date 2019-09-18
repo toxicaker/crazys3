@@ -32,6 +32,7 @@ type RpcHandler struct {
 	restoreChan     chan *pkg.RestorationRequest
 	recoverChan     chan *pkg.RecoveryRequest
 	manager         *pkg.S3Manager
+	manager2        *pkg.S3Manager
 	taskFinished    bool
 	finishedThreads int
 }
@@ -49,9 +50,16 @@ func (handler *RpcHandler) HandleTaskStatus(cmd string, ack *bool) error {
 
 func (handler *RpcHandler) HandleS3Info(req *pkg.S3InfoRequest, ack *bool) error {
 	pkg.GLogger.Debug("RPC CMD [HandleS3Info] received")
-	manager, err := pkg.NewS3ManagerWithKey(req.Region, req.AwsKey, req.AwsSecret)
+	manager, err := pkg.NewS3ManagerWithKey(req.Region1, req.AwsKey, req.AwsSecret)
 	if err != nil {
 		return err
+	}
+	if req.Region2 != "" {
+		manager2, err := pkg.NewS3ManagerWithKey(req.Region1, req.AwsKey, req.AwsSecret)
+		if err != nil {
+			return err
+		}
+		handler.manager2 = manager2
 	}
 	handler.manager = manager
 	*ack = true
@@ -118,7 +126,7 @@ func (handler *RpcHandler) StartMigraJob(cmd string, acl *bool) error {
 						goto EXIT
 					}
 					pkg.GLogger.Info("[Migration Job] thread %v is processing %v, id=%v", i, req.DestBucket+"/"+req.DestFileName, req.File.Id)
-					err := handler.manager.CopyFile(req.SourceBucket, req.File.Name, req.DestBucket, req.DestFileName)
+					err := handler.manager.CopyFile(req.SourceBucket, req.File.Name, req.DestBucket, req.DestFileName, handler.manager2)
 					if err != nil {
 						pkg.GLogger.Warning("[Migration Job] Exception in copying %v/%v to %v/%v, reason: %v", req.SourceBucket, req.File.Name, req.DestBucket, req.DestFileName, err)
 					}
