@@ -152,29 +152,28 @@ func main() {
 		}
 		break
 	}
-	go func() {
-		timer := time.NewTimer(10 * time.Second)
-		for {
-			select {
-			case <-timer.C:
-				num := 0
-				for _, cli := range clients {
-					res := false
-					cli.Call("RpcHandler.HandleTaskStatus", "", &res)
-					if res {
-						num++
-					}
+
+	timer := time.NewTimer(10 * time.Second)
+	for {
+		select {
+		case <-timer.C:
+			num := 0
+			for _, cli := range clients {
+				res := false
+				cli.Call("RpcHandler.HandleTaskStatus", "", &res)
+				if res {
+					num++
 				}
-				if num == len(clients) {
-					pkg.GLogger.Info("Task finished. Time spent: %v hours", time.Since(startTime).Hours())
-					goto EXIT
-				}
-				timer.Reset(10 * time.Second)
 			}
+			if num == len(clients) {
+				pkg.GLogger.Info("Task finished. Time spent: %v hours", time.Since(startTime).Hours())
+				goto EXIT
+			}
+			timer.Reset(10 * time.Second)
 		}
-	EXIT:
-		rpcClose(clients)
-	}()
+	}
+EXIT:
+	rpcClose(clients)
 }
 
 func rpcConnect(clients []*rpc.Client) error {
