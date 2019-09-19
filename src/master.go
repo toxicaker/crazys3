@@ -152,27 +152,29 @@ func main() {
 		}
 		break
 	}
-	timer := time.NewTimer(10 * time.Second)
-	for {
-		select {
-		case <-timer.C:
-			num := 0
-			for _, cli := range clients {
-				res := false
-				cli.Call("RpcHandler.HandleTaskStatus", "", &res)
-				if res {
-					num++
+	go func() {
+		timer := time.NewTimer(10 * time.Second)
+		for {
+			select {
+			case <-timer.C:
+				num := 0
+				for _, cli := range clients {
+					res := false
+					cli.Call("RpcHandler.HandleTaskStatus", "", &res)
+					if res {
+						num++
+					}
 				}
+				if num == len(clients) {
+					pkg.GLogger.Info("Task finished. Time spent: %v hours", time.Since(startTime).Hours())
+					goto EXIT
+				}
+				timer.Reset(10 * time.Second)
 			}
-			if num == len(clients) {
-				pkg.GLogger.Info("Task finished. Time spent: %v hours", time.Since(startTime).Hours())
-				goto EXIT
-			}
-			timer.Reset(10 * time.Second)
 		}
-	}
-EXIT:
-	rpcClose(clients)
+	EXIT:
+		rpcClose(clients)
+	}()
 }
 
 func rpcConnect(clients []*rpc.Client) error {
@@ -200,7 +202,7 @@ func RunMigrationJob(from string, to string, prefix string, clients []*rpc.Clien
 	// create s3 manager
 	manager, err := pkg.NewS3Manager("us-west-2", profile)
 	key, pwd := manager.GetCredential()
-	if key == "" || pwd == ""{
+	if key == "" || pwd == "" {
 		return errors.New("aws profile " + profile + " does not exist")
 	}
 	if err != nil {
@@ -274,7 +276,7 @@ func RunRestorationJob(bucket string, prefix string, clients []*rpc.Client, prof
 		return err
 	}
 	key, pwd := manager.GetCredential()
-	if key == "" || pwd == ""{
+	if key == "" || pwd == "" {
 		return errors.New("aws profile " + profile + " does not exist")
 	}
 	if !manager.BucketExists(bucket) {
@@ -344,7 +346,7 @@ func RunRecoveryJob(bucket string, prefix string, clients []*rpc.Client, profile
 		return err
 	}
 	key, pwd := manager.GetCredential()
-	if key == "" || pwd == ""{
+	if key == "" || pwd == "" {
 		return errors.New("aws profile " + profile + " does not exist")
 	}
 	if !manager.BucketExists(bucket) {
