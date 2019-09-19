@@ -1,4 +1,4 @@
-# crazy3
+# crazys3
 
 crazys3 solved problem of **s3 bucket migration, data restoration and data recovery**. I encountered the problem when I found I set a wrong lifecycle policy on s3 bucket. Then a huge amount of data(1T or more) was moved to glacier. There is no easy way to recover those data, as aws does not provide any command to restore the whole bucket. And also, you cannot solve this problem with one click on aws console. If you simply iterate objects and restore them one by one, it will take 1 weeks or more(especially when data size is large).
 
