@@ -43,6 +43,7 @@ go build master.go
 ```
 
 ### Output
+If you want to recover your file from glacier to standard, please run `S3 Bucket Restoration` at first. Because the prerequisite of recovering is changing file to restored status.
 ![](./img/2.png)
 
 ## Conclusion
