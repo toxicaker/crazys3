@@ -8,6 +8,8 @@ Then I found this [wiki](https://www.linuxschoolonline.com/how-i-could-restore-1
 
 ![](./img/1.png)
 
+The project relies on aws environment. So please make sure your master machine has `~/.aws/credentials`
+
 ## Configuration
 
 ```
