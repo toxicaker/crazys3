@@ -48,6 +48,7 @@ func (handler *RpcHandler) HandleTaskStatus(cmd string, ack *bool) error {
 	return nil
 }
 
+
 func (handler *RpcHandler) HandleS3Info(req *pkg.S3InfoRequest, ack *bool) error {
 	pkg.GLogger.Debug("RPC CMD [HandleS3Info] received")
 	manager, err := pkg.NewS3ManagerWithKey(req.Region1, req.AwsKey, req.AwsSecret)
@@ -55,7 +56,7 @@ func (handler *RpcHandler) HandleS3Info(req *pkg.S3InfoRequest, ack *bool) error
 		return err
 	}
 	if req.Region2 != "" {
-		manager2, err := pkg.NewS3ManagerWithKey(req.Region1, req.AwsKey, req.AwsSecret)
+		manager2, err := pkg.NewS3ManagerWithKey(req.Region2, req.AwsKey, req.AwsSecret)
 		if err != nil {
 			return err
 		}

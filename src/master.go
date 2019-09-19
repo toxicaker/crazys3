@@ -2,6 +2,7 @@ package main
 
 import (
 	"crazys3/src/pkg"
+	"errors"
 	"github.com/AlecAivazis/survey/v2"
 	"net/rpc"
 	"strconv"
@@ -198,15 +199,26 @@ func rpcClose(clients []*rpc.Client) {
 func RunMigrationJob(from string, to string, prefix string, clients []*rpc.Client, profile string) error {
 	// create s3 manager
 	manager, err := pkg.NewS3Manager("us-west-2", profile)
+	key, pwd := manager.GetCredential()
+	if key == "" || pwd == ""{
+		return errors.New("aws profile " + profile + " does not exist")
+	}
 	if err != nil {
 		return err
+	}
+	if !manager.BucketExists(from) {
+		return errors.New(from + " doesn't exist")
+	}
+	if !manager.BucketExists(to) {
+		return errors.New(to + " doesn't exist")
 	}
 	region1, err := manager.GetBucketRegion(from)
 	region2, err := manager.GetBucketRegion(to)
+	manager, err = pkg.NewS3Manager(region1, profile)
 	if err != nil {
 		return err
 	}
-	key, pwd := manager.GetCredential()
+
 	s3InfoReq := &pkg.S3InfoRequest{
 		Profile:   profile,
 		Region1:   region1,
@@ -240,6 +252,10 @@ func RunMigrationJob(from string, to string, prefix string, clients []*rpc.Clien
 		return nil
 	})
 	if err != nil {
+		for i := 0; i < len(pkg.GConfig.Workers); i++ {
+			buffers[i] = append(buffers[i], &pkg.MigrationRequest{Finished: true})
+			clients[i].Call("RpcHandler.HandleMigration", buffers[i], nil)
+		}
 		return err
 	}
 	for i := 0; i < len(pkg.GConfig.Workers); i++ {
@@ -257,6 +273,13 @@ func RunRestorationJob(bucket string, prefix string, clients []*rpc.Client, prof
 	if err != nil {
 		return err
 	}
+	key, pwd := manager.GetCredential()
+	if key == "" || pwd == ""{
+		return errors.New("aws profile " + profile + " does not exist")
+	}
+	if !manager.BucketExists(bucket) {
+		return errors.New(bucket + " doesn't exist")
+	}
 	region, err := manager.GetBucketRegion(bucket)
 	if err != nil {
 		return err
@@ -267,10 +290,9 @@ func RunRestorationJob(bucket string, prefix string, clients []*rpc.Client, prof
 			return err
 		}
 	}
-	key, pwd := manager.GetCredential()
 	s3InfoReq := &pkg.S3InfoRequest{
 		Profile:   profile,
-		Region1:    region,
+		Region1:   region,
 		AwsKey:    key,
 		AwsSecret: pwd,
 	}
@@ -300,6 +322,10 @@ func RunRestorationJob(bucket string, prefix string, clients []*rpc.Client, prof
 		return nil
 	})
 	if err != nil {
+		for i := 0; i < len(pkg.GConfig.Workers); i++ {
+			buffers[i] = append(buffers[i], &pkg.RestorationRequest{Finished: true})
+			clients[i].Call("RpcHandler.HandleRestoration", buffers[i], nil)
+		}
 		return err
 	}
 	for i := 0; i < len(pkg.GConfig.Workers); i++ {
@@ -317,6 +343,13 @@ func RunRecoveryJob(bucket string, prefix string, clients []*rpc.Client, profile
 	if err != nil {
 		return err
 	}
+	key, pwd := manager.GetCredential()
+	if key == "" || pwd == ""{
+		return errors.New("aws profile " + profile + " does not exist")
+	}
+	if !manager.BucketExists(bucket) {
+		return errors.New(bucket + " doesn't exist")
+	}
 	region, err := manager.GetBucketRegion(bucket)
 	if err != nil {
 		return err
@@ -327,10 +360,9 @@ func RunRecoveryJob(bucket string, prefix string, clients []*rpc.Client, profile
 			return err
 		}
 	}
-	key, pwd := manager.GetCredential()
 	s3InfoReq := &pkg.S3InfoRequest{
 		Profile:   profile,
-		Region1:    region,
+		Region1:   region,
 		AwsKey:    key,
 		AwsSecret: pwd,
 	}
@@ -358,6 +390,10 @@ func RunRecoveryJob(bucket string, prefix string, clients []*rpc.Client, profile
 		return nil
 	})
 	if err != nil {
+		for i := 0; i < len(pkg.GConfig.Workers); i++ {
+			buffers[i] = append(buffers[i], &pkg.RecoveryRequest{Finished: true})
+			clients[i].Call("RpcHandler.HandleRecovery", buffers[i], nil)
+		}
 		return err
 	}
 	for i := 0; i < len(pkg.GConfig.Workers); i++ {

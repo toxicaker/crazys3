@@ -152,11 +152,11 @@ func (manager *S3Manager) CopyFile(sourceBucket string, sourceFileName string, d
 	if err != nil {
 		return err
 	}
-	_, err = manager.s3cli.CopyObject(input)
+	res, err := sourceManager.s3cli.CopyObject(input)
 	if err != nil {
 		return err
 	}
-	//GLogger.Debug("copied file %v to %v, res=%v", sourceBucket+"/"+sourceFileName, destBucket+"/"+destFileName, res)
+	GLogger.Debug("copied file %v to %v, res=%v", sourceBucket+"/"+sourceFileName, destBucket+"/"+destFileName, res)
 	err = manager.PutFileAcls(destBucket, destFileName, acl)
 	return err
 }
@@ -199,4 +199,20 @@ func (manager *S3Manager) RecoverFile(bucket string, fileName string) error {
 	GLogger.Debug("copied file %v to %v, res=%v", bucket+"/"+fileName, bucket+"/"+fileName, res)
 	err = manager.PutFileAcls(bucket, fileName, acl)
 	return err
+}
+
+func (manager *S3Manager) BucketExists(bucket string) bool {
+	input := &s3.ListBucketsInput{
+	}
+	res, err := manager.s3cli.ListBuckets(input)
+	if err != nil {
+		return false
+	}
+	for _, b := range res.Buckets {
+
+		if *b.Name == bucket {
+			return true
+		}
+	}
+	return false
 }
