@@ -1,10 +1,8 @@
 {
-  "master": "192.168.10.200",
+  "master": "localhost",
   "workers": [
-    "192.168.10.251",
-    "192.168.10.50",
-    "192.168.10.46",
-    "192.168.10.67"
+    "localhost"
   ],
-  "worker_port": 10086
+  "worker_port": 10086,
+  "worker": "localhost"
 }
